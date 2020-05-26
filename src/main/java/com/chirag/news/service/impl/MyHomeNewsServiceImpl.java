@@ -8,6 +8,7 @@ import com.chirag.news.constants.Constants;
 import com.chirag.news.model.DTO.NewsDTO;
 import com.chirag.news.model.entity.BookMarked;
 import com.chirag.news.model.entity.Likes;
+import com.chirag.news.model.entity.Login;
 import com.chirag.news.model.entity.News;
 import com.chirag.news.repository.BookmarkRepository;
 import com.chirag.news.repository.LikeRepository;
@@ -114,6 +115,20 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     public ResponseEntity updateNews(Long id, String newsBody,String username) throws Exception {
         try {
             myHomeNewsRepository.updateNews(id, newsBody);
+            Map<Long,News> allNews = newsComponent.getAllNews();
+            if(!CollectionUtils.isEmpty(allNews)) {
+                allNews.get(id).setNewsBody(newsBody);
+                newsComponent.onlyPutAllNews(allNews);
+            }
+            String usernameEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
+            Map<String,Map<Long,News>> userNewsString = newsComponent.getUserNews();
+            if(!CollectionUtils.isEmpty(userNewsString)){
+                Map<Long,News> userNews = userNewsString.get(usernameEncrypt);
+                if(!CollectionUtils.isEmpty(userNews)){
+                    userNews.get(id).setNewsBody(newsBody);
+                    newsComponent.onlyPutUserNews(userNewsString);
+                }
+            }
             return new ResponseEntity("news updated", HttpStatus.OK);
         }catch (Exception e){
             LOG.error("news not updated with id : {}",id);
@@ -140,6 +155,20 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     public Boolean deleteNews(Long id,String username) {
         try {
             myHomeNewsRepository.deleteNews(id);
+            Map<Long,News> allNews = newsComponent.getAllNews();
+            if(!CollectionUtils.isEmpty(allNews)) {
+                allNews.remove(id);
+                newsComponent.onlyPutAllNews(allNews);
+            }
+            String usernameEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
+            Map<String,Map<Long,News>> userNewsString = newsComponent.getUserNews();
+            if(!CollectionUtils.isEmpty(userNewsString)){
+                Map<Long,News> userNews = userNewsString.get(usernameEncrypt);
+                if(!CollectionUtils.isEmpty(userNews)){
+                    userNews.remove(id);
+                    newsComponent.onlyPutUserNews(userNewsString);
+                }
+            }
             return true;
         }catch (Exception e){
             LOG.error("news not deleted with id :{}",id);
@@ -172,6 +201,9 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
             }
             if(!CollectionUtils.isEmpty(bookMarkedList)){
                 for(BookMarked bookMarked: bookMarkedList){
+                    if(allNews.get(bookMarked.getNews().getId())==null){
+                        continue;
+                    }
                     NewsDTO newsDTO = new NewsDTO();
                     newsDTO.setId(bookMarked.getNews().getId());
                     if(!StringUtils.isEmpty(allNews.get(bookMarked.getNews().getId()).getLogin().getUsername())){
@@ -221,6 +253,9 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                     likesList = likesMap.values().stream().collect(Collectors.toList());;
                 }
                 for(Likes likes: likesList){
+                    if(allNews.get(likes.getNews().getId())==null){
+                        continue;
+                    }
                     NewsDTO newsDTO = new NewsDTO();
                     newsDTO.setId(likes.getNews().getId());
                     if(!StringUtils.isEmpty(allNews.get(likes.getNews().getId()).getLogin().getUsername())){
@@ -269,6 +304,41 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 }
             }
             likeComponent.onlyAddLikeCount(likeCount);
+            Map<String,Map<Long,Likes>> likedMapString = likeComponent.getAllLikesOfUser();
+            if(like==0){
+                if(!CollectionUtils.isEmpty(likedMapString)){
+                    Map<Long,Likes> likesMap = likedMapString.get(userEncrypt);
+                    if(!CollectionUtils.isEmpty(likesMap)){
+                        likesMap.remove(newsId);
+                        likeComponent.onlyAddUserLikedNews(likedMapString);
+                    }
+                }
+            }else{
+                News news = null;
+                if(!CollectionUtils.isEmpty(newsComponent.getAllNews())){
+                    news = newsComponent.getAllNews().get(newsId);
+                }
+                Likes likes = new Likes();
+                likes.setIsLiked(true);
+                likes.setNews(news);
+                Login login = new Login();
+                login.setUsername(username);
+                likes.setLogin(login);
+                if(!CollectionUtils.isEmpty(likedMapString)){
+                    Map<Long,Likes> likesMap = likedMapString.get(userEncrypt);
+                    if(CollectionUtils.isEmpty(likesMap)){
+                        likesMap = new HashMap<>();
+                    }
+                    likesMap.put(newsId,likes);
+                    likedMapString.put(username,likesMap);
+                }else{
+                    likedMapString = new HashMap<>();
+                    Map<Long,Likes> likesMap = new HashMap<>();
+                    likesMap.put(newsId,likes);
+                    likedMapString.put(username,likesMap);
+                }
+                likeComponent.onlyAddUserLikedNews(likedMapString);
+            }
             return likeCount.get(newsId);
         }catch(Exception e){
             LOG.error("unable to add like");
@@ -281,6 +351,41 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
             bookmarkRepository.addBookMark(userEncrypt, newsId, bookmark);
+            Map<String,Map<Long,BookMarked>> bookmarkedMapString = bookMarkComponent.getAllBookmarksOfUser();
+            if(bookmark==0){
+                if(!CollectionUtils.isEmpty(bookmarkedMapString)){
+                    Map<Long,BookMarked> bookMarkedMap = bookmarkedMapString.get(userEncrypt);
+                    if(!CollectionUtils.isEmpty(bookMarkedMap)){
+                        bookMarkedMap.remove(newsId);
+                        bookMarkComponent.onlyPutAllBookmarks(bookmarkedMapString);
+                    }
+                }
+            }else{
+                News news = null;
+                if(!CollectionUtils.isEmpty(newsComponent.getAllNews())){
+                    news = newsComponent.getAllNews().get(newsId);
+                }
+                BookMarked bookMarked = new BookMarked();
+                bookMarked.setIsBookmarked(true);
+                bookMarked.setNews(news);
+                Login login = new Login();
+                login.setUsername(username);
+                bookMarked.setLogin(login);
+                if(!CollectionUtils.isEmpty(bookmarkedMapString)){
+                    Map<Long,BookMarked> bookMarkedMap = bookmarkedMapString.get(userEncrypt);
+                    if(CollectionUtils.isEmpty(bookMarkedMap)){
+                        bookMarkedMap = new HashMap<>();
+                    }
+                    bookMarkedMap.put(newsId,bookMarked);
+                    bookmarkedMapString.put(username,bookMarkedMap);
+                }else{
+                    bookmarkedMapString = new HashMap<>();
+                    Map<Long,BookMarked> bookMarkedMap = new HashMap<>();
+                    bookMarkedMap.put(newsId,bookMarked);
+                    bookmarkedMapString.put(username,bookMarkedMap);
+                }
+                bookMarkComponent.onlyPutAllBookmarks(bookmarkedMapString);
+            }
            return true;
         }catch(Exception e){
             LOG.error("unable to add bookmark");
