@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +32,9 @@ public class LikeComponent {
     @Autowired
     private CacheService cacheService;
 
-    private static Map<String, List<Likes>> likedNewsByUser;
+    private static Map<String, Map<Long,Likes>> likedNewsByUser = new HashMap<>();
 
-    private static Map<Long,Long> numberOfLikesOnNews;
+    private static Map<Long,Long> numberOfLikesOnNews = new HashMap<>();
 
     private static final ObjectMapper mapper ;
 
@@ -65,13 +64,13 @@ public class LikeComponent {
         List<Likes> likesList = likeRepository.getAllLikes();
         for(Likes likes:likesList){
             if(likedNewsByUser.get(likes.getLogin().getUsername())==null){
-                List<Likes> news = new ArrayList<>();
-                news.add(likes);
-                likedNewsByUser.put(likes.getLogin().getUsername(),news);
+                Map<Long,Likes> likesMap = new HashMap<>();
+                likesMap.put(likes.getNews().getId(),likes);
+                likedNewsByUser.put(likes.getLogin().getUsername(),likesMap);
             }else{
-                List<Likes> news = likedNewsByUser.get(likes.getLogin().getUsername());
-                news.add(likes);
-                likedNewsByUser.put(likes.getLogin().getUsername(),news);
+                Map<Long,Likes> likesMap = likedNewsByUser.get(likes.getLogin().getUsername());
+                likesMap.put(likes.getNews().getId(),likes);
+                likedNewsByUser.put(likes.getLogin().getUsername(),likesMap);
             }
             if(numberOfLikesOnNews.get(likes.getNews().getId())==null){
                 numberOfLikesOnNews.put(likes.getNews().getId(),1L);
@@ -79,7 +78,7 @@ public class LikeComponent {
                 numberOfLikesOnNews.put(likes.getNews().getId(),numberOfLikesOnNews.get(likes.getNews().getId())+1);
             }
         }
-        CacheBasicPutRequest<Map<String,List<Likes>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
+        CacheBasicPutRequest<Map<String,Map<Long,Likes>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
         cacheBasicPutRequest.setNamespace(LIKED_NEWS_BY_USER_NAMESPACE);
         cacheBasicPutRequest.setKey(Constants.LIKED_NEWS_BY_USER_KEY);
         cacheBasicPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
@@ -99,13 +98,13 @@ public class LikeComponent {
         }
     }
 
-    public Map<String,List<Likes>> getAllLikesOfUser() throws Exception {
+    public Map<String,Map<Long,Likes>> getAllLikesOfUser() throws Exception {
         CacheRequest cacheRequest = new CacheRequest();
         cacheRequest.setNamespace(LIKED_NEWS_BY_USER_NAMESPACE);
         cacheRequest.setKey(Constants.LIKED_NEWS_BY_USER_KEY);
-        Map<String,List<Likes>> likedNewsOfUser;
+        Map<String,Map<Long,Likes>> likedNewsOfUser;
         try {
-            likedNewsOfUser = cacheService.get(cacheRequest, new TypeReference<Map<String,List<Likes>>>() {});
+            likedNewsOfUser = cacheService.get(cacheRequest, new TypeReference<Map<String,Map<Long,Likes>>>() {});
             if(CollectionUtils.isEmpty(likedNewsOfUser)){
                 throw new Exception();
             }
@@ -134,5 +133,29 @@ public class LikeComponent {
         }
         initialiseLikeCache();
         return numberOfLikesOnNews;
+    }
+
+    public void onlyAddUserLikedNews(Map<String,Map<Long,Likes>> addUserLikes) throws Exception {
+        CacheBasicPutRequest<Map<String,Map<Long,Likes>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
+        cacheBasicPutRequest.setNamespace(LIKED_NEWS_BY_USER_NAMESPACE);
+        cacheBasicPutRequest.setKey(Constants.LIKED_NEWS_BY_USER_KEY);
+        cacheBasicPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheBasicPutRequest.setUpdateTtl(true);
+        cacheBasicPutRequest.setValue(addUserLikes);
+        if(!CollectionUtils.isEmpty(addUserLikes)){
+            cacheService.put(cacheBasicPutRequest);
+        }
+    }
+
+    public void onlyAddLikeCount(Map<Long,Long> addLikesCount) throws Exception {
+        CacheBasicPutRequest<Map<Long,Long>> cacheBasicPutRequest1 = new CacheBasicPutRequest<>();
+        cacheBasicPutRequest1.setNamespace(NEWS_LIKES_NAMESPACE);
+        cacheBasicPutRequest1.setKey(Constants.TOTAL_LIKES_KEY);
+        cacheBasicPutRequest1.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheBasicPutRequest1.setUpdateTtl(true);
+        cacheBasicPutRequest1.setValue(addLikesCount);
+        if(!CollectionUtils.isEmpty(addLikesCount)){
+            cacheService.put(cacheBasicPutRequest1);
+        }
     }
 }

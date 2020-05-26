@@ -41,11 +41,11 @@ public class MyNewsNewsRepositoryImpl implements MyHomeNewsRepository {
 
     @Override
     @Transactional(transactionManager = Constants.MASTER_TRANSACTION_MANAGER)
-    public Integer addNews(String username, String newsBody) {
+    public void addNews(String username, String newsBody) {
         Query query = masterEntityManager.createNativeQuery("insert into news(news_body,username) values(?,?)");
         query.setParameter(1,newsBody);
         query.setParameter(2,username);
-        return query.executeUpdate();
+        query.executeUpdate();
     }
 
     @Override

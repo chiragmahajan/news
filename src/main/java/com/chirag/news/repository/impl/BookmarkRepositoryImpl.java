@@ -35,4 +35,11 @@ public class BookmarkRepositoryImpl implements BookmarkRepository {
         query.setParameter("isBookmark",isBookmark);
         query.executeUpdate();
     }
+
+    @Override
+    public List<BookMarked> getUserBookmarks(String username) {
+        Query query = slaveEntityManager.createNativeQuery("select * from bookmarks where is_bookmarked=1 and username=:username",BookMarked.class);
+        query.setParameter("username",username);
+        return query.getResultList();
+    }
 }

@@ -4,6 +4,7 @@ import com.chirag.news.constants.Constants;
 import com.chirag.news.model.cache.CacheBasicPutRequest;
 import com.chirag.news.model.cache.CacheRequest;
 import com.chirag.news.model.entity.BookMarked;
+import com.chirag.news.model.entity.Likes;
 import com.chirag.news.repository.BookmarkRepository;
 import com.chirag.news.service.CacheService;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +33,7 @@ public class BookMarkComponent {
     @Autowired
     private CacheService cacheService;
 
-    private static Map<String, List<BookMarked>> bookMarkedNews;
+    private static Map<String, Map<Long, BookMarked>> bookMarkedNews;
 
     private static final ObjectMapper mapper ;
 
@@ -60,12 +60,16 @@ public class BookMarkComponent {
         List<BookMarked> bookMarkedList = bookmarkRepository.getAll();
         for(BookMarked bookMarked:bookMarkedList){
             if(bookMarkedNews.get(bookMarked.getLogin().getUsername())==null){
-                List<BookMarked> news = new ArrayList<>();
-                news.add(bookMarked);
-                bookMarkedNews.put(bookMarked.getLogin().getUsername(),news);
+                Map<Long,BookMarked> bookMarkedMap = new HashMap<>();
+                bookMarkedMap.put(bookMarked.getNews().getId(),bookMarked);
+                bookMarkedNews.put(bookMarked.getLogin().getUsername(),bookMarkedMap);
+            }else{
+                Map<Long,BookMarked> bookMarkedMap = bookMarkedNews.get(bookMarked.getLogin().getUsername());
+                bookMarkedMap.put(bookMarked.getNews().getId(),bookMarked);
+                bookMarkedNews.put(bookMarked.getLogin().getUsername(),bookMarkedMap);
             }
         }
-            CacheBasicPutRequest<Map<String,List<BookMarked>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
+            CacheBasicPutRequest<Map<String,Map<Long,BookMarked>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
             cacheBasicPutRequest.setNamespace(BOOKMARK_NAMESPACE);
             cacheBasicPutRequest.setKey(Constants.BOOKMARK_KEY);
             cacheBasicPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
@@ -76,13 +80,13 @@ public class BookMarkComponent {
             }
     }
 
-    public Map<String,List<BookMarked>> getAllBookmarksOfUser() throws Exception {
+    public Map<String,Map<Long, BookMarked>> getAllBookmarksOfUser() throws Exception {
         CacheRequest cacheRequest = new CacheRequest();
         cacheRequest.setNamespace(BOOKMARK_NAMESPACE);
         cacheRequest.setKey(Constants.BOOKMARK_KEY);
-        Map<String,List<BookMarked>> bookMarkedMap;
+        Map<String,Map<Long, BookMarked>> bookMarkedMap;
         try {
-            bookMarkedMap = cacheService.get(cacheRequest, new TypeReference<Map<String,List<BookMarked>>>() {});
+            bookMarkedMap = cacheService.get(cacheRequest, new TypeReference<Map<String,Map<Long, BookMarked>>>() {});
             if(CollectionUtils.isEmpty(bookMarkedMap)){
                 throw new Exception();
             }
@@ -92,6 +96,18 @@ public class BookMarkComponent {
         }
         initialiseBookmarkCache();
         return bookMarkedNews;
+    }
+
+    public void onlyPutAllBookmarks(Map<String,Map<Long, BookMarked>> onlyAddBookmark) throws Exception {
+        CacheBasicPutRequest<Map<String,Map<Long, BookMarked>>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
+        cacheBasicPutRequest.setNamespace(BOOKMARK_NAMESPACE);
+        cacheBasicPutRequest.setKey(Constants.BOOKMARK_KEY);
+        cacheBasicPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheBasicPutRequest.setUpdateTtl(true);
+        cacheBasicPutRequest.setValue(onlyAddBookmark);
+        if(!CollectionUtils.isEmpty(onlyAddBookmark)){
+            cacheService.put(cacheBasicPutRequest);
+        }
     }
 
 }

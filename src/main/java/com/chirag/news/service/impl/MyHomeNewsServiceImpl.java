@@ -14,7 +14,6 @@ import com.chirag.news.repository.LikeRepository;
 import com.chirag.news.repository.MyHomeNewsRepository;
 import com.chirag.news.service.MyHomeNewsService;
 import com.chirag.news.util.EncryptionUtil;
-import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNewsService {
@@ -60,30 +60,24 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
 
         Map<Long,Likes> likesOfUser = new HashMap<>();
         Map<Long,BookMarked> bookmarksOfUser = new HashMap<>();
-        Map<String,List<Likes>> allLikesOfUser = likeComponent.getAllLikesOfUser();
-        Map<String,List<BookMarked>> allBookMarksOfUser = bookMarkComponent.getAllBookmarksOfUser();
-        Map<String,List<News>> userNews = newsComponent.getUserNews();
+        Map<String,Map<Long,Likes>> allLikesOfUser = likeComponent.getAllLikesOfUser();
+        Map<String,Map<Long,BookMarked>> allBookMarksOfUser = bookMarkComponent.getAllBookmarksOfUser();
+        Map<String,Map<Long,News>> userNews = newsComponent.getUserNews();
         Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
         if(!CollectionUtils.isEmpty(allLikesOfUser)){
-            List<Likes> likesList = allLikesOfUser.get(encryptedUser);
-            if(!CollectionUtils.isEmpty(likesList)){
-                for(Likes likes: likesList) {
-                   likesOfUser.put(likes.getNews().getId(),likes);
-                }
-            }
+            likesOfUser = allLikesOfUser.get(encryptedUser);
         }
         if(!CollectionUtils.isEmpty(allBookMarksOfUser)){
-            List<BookMarked> bookMarkedList = allBookMarksOfUser.get(encryptedUser);
-            if(!CollectionUtils.isEmpty(bookMarkedList)){
-                for(BookMarked bookMarked: bookMarkedList) {
-                    bookmarksOfUser.put(bookMarked.getNews().getId(),bookMarked);
-                }
-            }
+            bookmarksOfUser = allBookMarksOfUser.get(encryptedUser);
         }
         if(!CollectionUtils.isEmpty(userNews)){
-            List<News> newsList = userNews.get(encryptedUser);
+            Map<Long,News> newsMap = userNews.get(encryptedUser);
+            List<News> newsList = null;
+            if(!CollectionUtils.isEmpty(newsMap)){
+                newsList = newsMap.values().stream().collect(Collectors.toList());;
+            }
             if(!CollectionUtils.isEmpty(newsList)){
                 for(News news: newsList) {
                     NewsDTO newsDTO = new NewsDTO();
@@ -133,8 +127,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     public ResponseEntity addNews(String username, String newsBody) throws Exception {
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
-            int id = myHomeNewsRepository.addNews(userEncrypt,newsBody);
-            return new ResponseEntity("news added with id = "+id,HttpStatus.OK);
+            myHomeNewsRepository.addNews(userEncrypt,newsBody);
+            return new ResponseEntity("news added",HttpStatus.OK);
         }catch (Exception e){
             LOG.error("unable to add news");
             throw new Exception("unable to add news");
@@ -160,23 +154,22 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         List<NewsDTO> bookmarkedNews = new ArrayList<>();
         Map<Long,Likes> userLikedMap = null;
 
-        Map<String,List<BookMarked>> listMap = bookMarkComponent.getAllBookmarksOfUser();
+        Map<String,Map<Long,BookMarked>> listMap = bookMarkComponent.getAllBookmarksOfUser();
         Map<Long,News> allNews = newsComponent.getAllNews();
-        Map<String,List<Likes>> allLikes = likeComponent.getAllLikesOfUser();
+        Map<String,Map<Long,Likes>> allLikes = likeComponent.getAllLikesOfUser();
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
 
         if(!CollectionUtils.isEmpty(allLikes)){
-            List<Likes> userLiked = allLikes.get(encryptedUser);
-            if(!CollectionUtils.isEmpty(userLiked)){
-                for(Likes likes: userLiked){
-                    userLikedMap.put(likes.getNews().getId(),likes);
-                }
-            }
+            userLikedMap = allLikes.get(encryptedUser);
         }
         Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
         if(!CollectionUtils.isEmpty(listMap) && !CollectionUtils.isEmpty(allNews)){
-            List<BookMarked> bookMarkedList = listMap.get(encryptedUser);
+            Map<Long,BookMarked> bookMarkedMap = listMap.get(encryptedUser);
+            List<BookMarked> bookMarkedList = null;
+            if(!CollectionUtils.isEmpty(bookMarkedMap)){
+                bookMarkedList = bookMarkedMap.values().stream().collect(Collectors.toList());;
+            }
             if(!CollectionUtils.isEmpty(bookMarkedList)){
                 for(BookMarked bookMarked: bookMarkedList){
                     NewsDTO newsDTO = new NewsDTO();
@@ -211,23 +204,22 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         List<NewsDTO> likedNews = new ArrayList<>();
         Map<Long,BookMarked> userBookmarkMap = null;
 
-        Map<String,List<Likes>> listMap = likeComponent.getAllLikesOfUser();
+        Map<String,Map<Long,Likes>> listMap = likeComponent.getAllLikesOfUser();
         Map<Long,News> allNews = newsComponent.getAllNews();
-        Map<String,List<BookMarked>> allBookmarkedNews = bookMarkComponent.getAllBookmarksOfUser();
+        Map<String,Map<Long,BookMarked>> allBookmarkedNews = bookMarkComponent.getAllBookmarksOfUser();
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
         if(!CollectionUtils.isEmpty(allBookmarkedNews)){
-            List<BookMarked> bookMarkedList = allBookmarkedNews.get(encryptedUser);
-            if(!CollectionUtils.isEmpty(bookMarkedList)){
-                for(BookMarked bookMarked: bookMarkedList){
-                    userBookmarkMap.put(bookMarked.getNews().getId(),bookMarked);
-                }
-            }
+            userBookmarkMap = allBookmarkedNews.get(encryptedUser);
         }
         Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
         if(!CollectionUtils.isEmpty(listMap) && !CollectionUtils.isEmpty(allNews)){
-            List<Likes> likesList = listMap.get(encryptedUser);
-            if(!CollectionUtils.isEmpty(likesList)){
+            Map<Long,Likes> likesMap = listMap.get(encryptedUser);
+            List<Likes> likesList = null;
+            if(!CollectionUtils.isEmpty(likesMap)){
+                if(!CollectionUtils.isEmpty(likesMap)){
+                    likesList = likesMap.values().stream().collect(Collectors.toList());;
+                }
                 for(Likes likes: likesList){
                     NewsDTO newsDTO = new NewsDTO();
                     newsDTO.setId(likes.getNews().getId());
@@ -256,22 +248,39 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     }
 
     @Override
-    public Boolean likeNews(String username, Long newsId, Integer like) {
+    public Long likeNews(String username, Long newsId, Integer like) {
+        Long value = 0L;
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
             likeRepository.addLike(userEncrypt, newsId, like);
-            return true;
+            Map<Long,Long> likeCount = likeComponent.getTotalLikesOnNews();
+            value = likeCount.get(newsId);
+            if(like==0){
+                if(!CollectionUtils.isEmpty(likeCount)){
+                    if(likeCount.get(newsId)!=null) {
+                        likeCount.put(newsId, likeCount.get(newsId) - 1);
+                    }
+                }
+            }else{
+                if(!CollectionUtils.isEmpty(likeCount)){
+                    if(likeCount.get(newsId)!=null) {
+                        likeCount.put(newsId, likeCount.get(newsId) + 1);
+                    }
+                }
+            }
+            likeComponent.onlyAddLikeCount(likeCount);
+            return likeCount.get(newsId);
         }catch(Exception e){
             LOG.error("unable to add like");
         }
-        return false;    }
+        return value;
+    }
 
     @Override
     public Boolean bookmarkNews(String username, Long newsId, Integer bookmark) {
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
-           bookmarkRepository.addBookMark(userEncrypt, newsId, bookmark);
-
+            bookmarkRepository.addBookMark(userEncrypt, newsId, bookmark);
            return true;
         }catch(Exception e){
             LOG.error("unable to add bookmark");

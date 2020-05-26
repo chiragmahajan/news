@@ -12,6 +12,6 @@ public interface MyHomeNewsService {
     Boolean deleteNews(Long id,String username);
     List<NewsDTO> bookmarkedNews(String username) throws Exception;
     List<NewsDTO> likedNews(String username) throws Exception;
-    Boolean likeNews(String username,Long newsId,Integer like);
+    Long likeNews(String username,Long newsId,Integer like);
     Boolean bookmarkNews(String username,Long newsId,Integer bookmark);
 }

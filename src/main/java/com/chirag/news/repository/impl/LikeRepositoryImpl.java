@@ -35,4 +35,11 @@ public class LikeRepositoryImpl implements LikeRepository {
         query.setParameter("isLiked",isLiked);
         query.executeUpdate();
     }
+
+    @Override
+    public List<Likes> getUserLikes(String username) {
+        Query query = slaveEntityManager.createNativeQuery("select * from likes where is_liked=1 and username=:username", Likes.class);
+        query.setParameter("username",username);
+        return query.getResultList();
+    }
 }

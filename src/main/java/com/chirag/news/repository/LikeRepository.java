@@ -7,4 +7,5 @@ import java.util.List;
 public interface LikeRepository {
     List<Likes> getAllLikes();
     void addLike(String username,Long newsId,Integer isLiked);
+    List<Likes> getUserLikes(String username);
 }

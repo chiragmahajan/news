@@ -8,7 +8,7 @@ import java.util.List;
 public interface MyHomeNewsRepository {
     List<News> getNews(String username);
     void updateNews(Long id,String newsBody);
-    Integer addNews(String username, String newsBody);
+    void addNews(String username, String newsBody);
     void deleteNews(Long id);
     List<News> getAllNews();
 }

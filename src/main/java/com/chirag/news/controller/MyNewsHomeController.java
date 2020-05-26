@@ -23,7 +23,7 @@ public class MyNewsHomeController {
 
     @ResponseBody
     @GetMapping("/home/my-news")
-    public List<NewsDTO> getNews(@RequestHeader("username") String username){
+    public List<NewsDTO> getNews(@RequestHeader("username") String username) throws Exception {
         return myHomeNewsService.getNews(username);
     }
 
@@ -51,13 +51,13 @@ public class MyNewsHomeController {
 
     @ResponseBody
     @GetMapping("/home/my-news/bookmarked")
-    public List<NewsDTO> bookmarkedNews(@RequestHeader("username")  String username){
+    public List<NewsDTO> bookmarkedNews(@RequestHeader("username")  String username) throws Exception {
         return myHomeNewsService.bookmarkedNews(username);
     }
 
     @ResponseBody
     @GetMapping("/home/my-news/liked")
-    public List<NewsDTO> likedNews(@RequestHeader("username") String username){
+    public List<NewsDTO> likedNews(@RequestHeader("username") String username) throws Exception {
         return myHomeNewsService.likedNews(username);
     }
 
@@ -75,7 +75,7 @@ public class MyNewsHomeController {
 
     @ResponseBody
     @PostMapping("/home/my-news/like-news/{id}")
-    public Boolean like(@RequestHeader("username") String username,
+    public Long like(@RequestHeader("username") String username,
                         @PathVariable("id") Long id,
                         @RequestParam(value = "like", required = false,defaultValue = "1") Integer like) throws Exception {
         if(like==1 || like==0){

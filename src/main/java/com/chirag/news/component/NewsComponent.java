@@ -17,7 +17,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +31,9 @@ public class NewsComponent {
     @Autowired
     private CacheService cacheService;
 
-    private static Map<Long, News> allNews;
+    private static Map<Long, News> allNews = new HashMap<>();
 
-    private static Map<String,List<News>> userNews;
+    private static Map<String,Map<Long,News>> userNews = new HashMap<>();
 
     private static final ObjectMapper mapper ;
 
@@ -65,13 +64,13 @@ public class NewsComponent {
         for(News news:everyNews){
             allNews.put(news.getId(),news);
             if(userNews.get(news.getLogin().getUsername())==null){
-                List<News> newsList = new ArrayList<>();
-                newsList.add(news);
-                userNews.put(news.getLogin().getUsername(),newsList);
+                Map<Long,News> newsMap = new HashMap<>();
+                newsMap.put(news.getId(),news);
+                userNews.put(news.getLogin().getUsername(),newsMap);
             }else{
-                List<News> newsList = userNews.get(news.getLogin().getUsername());
-                newsList.add(news);
-                userNews.put(news.getLogin().getUsername(),newsList);
+                Map<Long,News> newsMap = userNews.get(news.getLogin().getUsername());
+                newsMap.put(news.getId(),news);
+                userNews.put(news.getLogin().getUsername(),newsMap);
             }
 
         }
@@ -84,7 +83,7 @@ public class NewsComponent {
         if(!CollectionUtils.isEmpty(allNews)){
             cacheService.put(cacheBasicPutRequest);
         }
-        CacheBasicPutRequest<Map<String,List<News>>> cacheBasicPutRequest1 = new CacheBasicPutRequest<>();
+        CacheBasicPutRequest<Map<String,Map<Long,News>>> cacheBasicPutRequest1 = new CacheBasicPutRequest<>();
         cacheBasicPutRequest1.setNamespace(USER_NEWS);
         cacheBasicPutRequest1.setKey(Constants.USER_NEWS_KEY);
         cacheBasicPutRequest1.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
@@ -113,13 +112,13 @@ public class NewsComponent {
         return allNews;
     }
 
-    public Map<String,List<News>> getUserNews() throws Exception {
+    public Map<String,Map<Long,News>> getUserNews() throws Exception {
         CacheRequest cacheRequest = new CacheRequest();
         cacheRequest.setNamespace(USER_NEWS);
         cacheRequest.setKey(Constants.USER_NEWS_KEY);
-        Map<String,List<News>> newsAll;
+        Map<String,Map<Long,News>> newsAll;
         try {
-            newsAll = cacheService.get(cacheRequest, new TypeReference<Map<String,List<News>>>() {});
+            newsAll = cacheService.get(cacheRequest, new TypeReference<Map<String,Map<Long,News>>>() {});
             if(CollectionUtils.isEmpty(newsAll)){
                 throw new Exception();
             }
@@ -130,4 +129,29 @@ public class NewsComponent {
         initialiseNewsCache();
         return userNews;
     }
+
+    public void onlyPutAllNews(Map<Long,News> allLatestNews) throws Exception {
+        CacheBasicPutRequest<Map<Long,News>> cacheBasicPutRequest = new CacheBasicPutRequest<>();
+        cacheBasicPutRequest.setNamespace(ALL_NEWS);
+        cacheBasicPutRequest.setKey(Constants.ALL_NEWS_KEY);
+        cacheBasicPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheBasicPutRequest.setUpdateTtl(true);
+        cacheBasicPutRequest.setValue(allLatestNews);
+        if(!CollectionUtils.isEmpty(allLatestNews)){
+            cacheService.put(cacheBasicPutRequest);
+        }
+    }
+
+    public void onlyPutUserNews(Map<String,Map<Long,News>> allUserLatestNews) throws Exception {
+        CacheBasicPutRequest<Map<String,Map<Long,News>>> cacheBasicPutRequest1 = new CacheBasicPutRequest<>();
+        cacheBasicPutRequest1.setNamespace(USER_NEWS);
+        cacheBasicPutRequest1.setKey(Constants.USER_NEWS_KEY);
+        cacheBasicPutRequest1.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheBasicPutRequest1.setUpdateTtl(true);
+        cacheBasicPutRequest1.setValue(allUserLatestNews);
+        if(!CollectionUtils.isEmpty(allUserLatestNews)){
+            cacheService.put(cacheBasicPutRequest1);
+        }
+    }
+
 }
