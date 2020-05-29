@@ -11,4 +11,5 @@ public interface MyHomeNewsRepository {
     void addNews(String username, String newsBody);
     void deleteNews(Long id);
     List<News> getAllNews();
+    News getNewlyAddedNews(String username, String newsBody);
 }

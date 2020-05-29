@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +111,39 @@ public class NewsComponent {
         }
         initialiseNewsCache();
         return allNews;
+    }
+
+    public List<News> getAllNewsPerPage(int page) throws Exception {
+        CacheRequest cacheRequest = new CacheRequest();
+        cacheRequest.setNamespace(ALL_NEWS);
+        cacheRequest.setKey(Constants.ALL_NEWS_KEY);
+        List<News> newsAll;
+        try {
+            newsAll = cacheService.getList(cacheRequest,(page*10),(page*10+10), new TypeReference<News>() {
+            });
+            if (CollectionUtils.isEmpty(newsAll)) {
+                throw new Exception();
+            }
+            return newsAll;
+        } catch (Exception e) {
+            LOGGER.error("NewsComponent.getAllNews:  Could not fetch news mappings from cache", e);
+        }
+        initialiseNewsCache();
+        CacheRequest cacheRequest1 = new CacheRequest();
+        cacheRequest1.setNamespace(ALL_NEWS);
+        cacheRequest1.setKey(Constants.ALL_NEWS_KEY);
+        List<News> newsAll1;
+        try {
+            newsAll1 = cacheService.getList(cacheRequest1,(page*10),(page*10+10), new TypeReference<News>() {
+            });
+            if (CollectionUtils.isEmpty(newsAll1)) {
+                throw new Exception();
+            }
+            return newsAll1;
+        } catch (Exception e) {
+            LOGGER.error("NewsComponent.getAllNews:  Could not fetch news mappings from cache", e);
+        }
+        return Collections.EMPTY_LIST;
     }
 
     public Map<String,Map<Long,News>> getUserNews() throws Exception {

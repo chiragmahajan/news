@@ -61,4 +61,12 @@ public class MyNewsNewsRepositoryImpl implements MyHomeNewsRepository {
         Query query = slaveEntityManager.createNativeQuery("select * from news where active=1 order by created_at desc", News.class);
         return query.getResultList();
     }
+
+    @Override
+    public News getNewlyAddedNews(String username, String newsBody) {
+        Query query = slaveEntityManager.createNativeQuery("select * from news where username =:username and news_body =:newsBody and active=1 order by created_at desc limit 1", News.class);
+        query.setParameter("username",username);
+        query.setParameter("newBody",newsBody);
+        return (News) query.getSingleResult();
+    }
 }

@@ -61,10 +61,33 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
 
         Map<Long,Likes> likesOfUser = new HashMap<>();
         Map<Long,BookMarked> bookmarksOfUser = new HashMap<>();
-        Map<String,Map<Long,Likes>> allLikesOfUser = likeComponent.getAllLikesOfUser();
-        Map<String,Map<Long,BookMarked>> allBookMarksOfUser = bookMarkComponent.getAllBookmarksOfUser();
-        Map<String,Map<Long,News>> userNews = newsComponent.getUserNews();
-        Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
+        Map<String,Map<Long,Likes>> allLikesOfUser = null;
+
+        Map<String,Map<Long,News>> userNews = null;
+        try {
+            userNews = newsComponent.getUserNews();
+        }catch(Exception e){
+            LOG.error("unable to fetch user news");
+            throw e;
+        }
+        try {
+            allLikesOfUser = likeComponent.getAllLikesOfUser();
+        }catch(Exception e){
+            LOG.error("unable to fetch user likes");;
+        }
+        Map<String,Map<Long,BookMarked>> allBookMarksOfUser = null;
+        try {
+            allBookMarksOfUser = bookMarkComponent.getAllBookmarksOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch user bookmarks");
+        }
+
+        Map<Long,Long> totalLikes = null;
+        try {
+            totalLikes = likeComponent.getTotalLikesOnNews();
+        }catch(Exception e){
+            LOG.error("unable to fetch total likes");
+        }
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
         if(!CollectionUtils.isEmpty(allLikesOfUser)){
@@ -115,13 +138,23 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     public ResponseEntity updateNews(Long id, String newsBody,String username) throws Exception {
         try {
             myHomeNewsRepository.updateNews(id, newsBody);
-            Map<Long,News> allNews = newsComponent.getAllNews();
+            Map<Long,News> allNews = null;
+            try {
+                allNews = newsComponent.getAllNews();
+            }catch (Exception e){
+                LOG.error("unable to fetch all news");
+            }
             if(!CollectionUtils.isEmpty(allNews)) {
                 allNews.get(id).setNewsBody(newsBody);
                 newsComponent.onlyPutAllNews(allNews);
             }
             String usernameEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
-            Map<String,Map<Long,News>> userNewsString = newsComponent.getUserNews();
+            Map<String,Map<Long,News>> userNewsString = null;
+            try {
+                userNewsString = newsComponent.getUserNews();
+            }catch(Exception e){
+                LOG.error("unable to fetch user news");
+            }
             if(!CollectionUtils.isEmpty(userNewsString)){
                 Map<Long,News> userNews = userNewsString.get(usernameEncrypt);
                 if(!CollectionUtils.isEmpty(userNews)){
@@ -139,15 +172,92 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
 
     @Override
 //    @CacheEvict(value = Constants.USER_NEWS_CACHE, cacheManager = Constants.CAFFEINE_CACHE_MANAGER, key = "#username")
-    public ResponseEntity addNews(String username, String newsBody) throws Exception {
+    public NewsDTO addNews(String username, String newsBody) throws Exception {
+
+        String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
         try{
-            String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
             myHomeNewsRepository.addNews(userEncrypt,newsBody);
-            return new ResponseEntity("news added",HttpStatus.OK);
         }catch (Exception e){
             LOG.error("unable to add news");
             throw new Exception("unable to add news");
         }
+        Map<Long,BookMarked> allBookmarksOfUser = new HashMap<>();
+        Map<Long,Likes> allLikesOfUser = new HashMap<>();
+        News news = myHomeNewsRepository.getNewlyAddedNews(userEncrypt,newsBody);
+        if(news==null){
+            throw new Exception("news not added");
+        }
+        Map<Long,News> allNews = null;
+        try {
+            allNews = newsComponent.getAllNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch all news");
+        }
+        if(!CollectionUtils.isEmpty(allNews)) {
+            allNews.put(news.getId(), news);
+            newsComponent.onlyPutAllNews(allNews);
+        }
+        Map<String,Map<Long,News>> allUserNews = null;
+        try {
+            allUserNews = newsComponent.getUserNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch user news");
+        }
+        if(!CollectionUtils.isEmpty(allUserNews)){
+            Map<Long,News> newsMap = allUserNews.get(news.getId());
+            if(!CollectionUtils.isEmpty(newsMap)){
+                newsMap.put(news.getId(),news);
+                newsComponent.onlyPutUserNews(allUserNews);
+            }
+        }
+
+        Map<String,Map<Long,BookMarked>> allBookmarks = null;
+        try {
+            allBookmarks = bookMarkComponent.getAllBookmarksOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch all user bookmarks");
+        }
+        Map<String,Map<Long,Likes>> allLikes = null;
+        try {
+            allLikes = likeComponent.getAllLikesOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch all user likes");
+        }
+        Map<Long,Long> totalLikes = null;
+        try {
+            totalLikes = likeComponent.getTotalLikesOnNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch total likes");
+        }
+        if(!CollectionUtils.isEmpty(allBookmarks)){
+            allBookmarksOfUser = allBookmarks.get(userEncrypt);
+        }
+        if(!CollectionUtils.isEmpty(allLikes)){
+            allLikesOfUser = allLikes.get(userEncrypt);
+        }
+
+        NewsDTO newsDTO = new NewsDTO();
+        newsDTO.setId(news.getId());
+        newsDTO.setNews(news.getNewsBody());
+        newsDTO.setAuthor(username);
+        if(!CollectionUtils.isEmpty(allBookmarksOfUser)){
+            if(allBookmarksOfUser.get(news.getId())==null){
+                newsDTO.setIsBookmarked(0);
+            }else{
+                newsDTO.setIsBookmarked(1);
+            }
+        }
+        if(!CollectionUtils.isEmpty(allLikesOfUser)){
+            if(allLikesOfUser.get(news.getId())==null){
+                newsDTO.setIsLiked(0);
+            }else{
+                newsDTO.setIsLiked(1);
+            }
+        }
+        if(!CollectionUtils.isEmpty(totalLikes)){
+            newsDTO.setLikeCount(totalLikes.get(news.getId()));
+        }
+        return newsDTO;
     }
 
     @Override
@@ -155,13 +265,23 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
     public Boolean deleteNews(Long id,String username) {
         try {
             myHomeNewsRepository.deleteNews(id);
-            Map<Long,News> allNews = newsComponent.getAllNews();
+            Map<Long,News> allNews = null;
+            try {
+                allNews = newsComponent.getAllNews();
+            }catch (Exception e){
+                LOG.error("unable to fetch all news");
+            }
             if(!CollectionUtils.isEmpty(allNews)) {
                 allNews.remove(id);
                 newsComponent.onlyPutAllNews(allNews);
             }
             String usernameEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
-            Map<String,Map<Long,News>> userNewsString = newsComponent.getUserNews();
+            Map<String,Map<Long,News>> userNewsString = null;
+            try {
+                userNewsString = newsComponent.getUserNews();
+            }catch (Exception e){
+                LOG.error("unable to fetch user news");
+            }
             if(!CollectionUtils.isEmpty(userNewsString)){
                 Map<Long,News> userNews = userNewsString.get(usernameEncrypt);
                 if(!CollectionUtils.isEmpty(userNews)){
@@ -183,16 +303,38 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         List<NewsDTO> bookmarkedNews = new ArrayList<>();
         Map<Long,Likes> userLikedMap = null;
 
-        Map<String,Map<Long,BookMarked>> listMap = bookMarkComponent.getAllBookmarksOfUser();
-        Map<Long,News> allNews = newsComponent.getAllNews();
-        Map<String,Map<Long,Likes>> allLikes = likeComponent.getAllLikesOfUser();
+        Map<String,Map<Long,BookMarked>> listMap = null;
+        try {
+            listMap = bookMarkComponent.getAllBookmarksOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch user bookmarks");
+            throw e;
+        }
+        Map<Long,News> allNews = null;
+        try {
+            allNews = newsComponent.getAllNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch all news");
+            throw e;
+        }
+        Map<String,Map<Long,Likes>> allLikes = null;
+        try {
+            allLikes = likeComponent.getAllLikesOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch user likes");
+        }
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
 
         if(!CollectionUtils.isEmpty(allLikes)){
             userLikedMap = allLikes.get(encryptedUser);
         }
-        Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
+        Map<Long,Long> totalLikes = null;
+        try {
+            totalLikes = likeComponent.getTotalLikesOnNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch total likes");
+        }
         if(!CollectionUtils.isEmpty(listMap) && !CollectionUtils.isEmpty(allNews)){
             Map<Long,BookMarked> bookMarkedMap = listMap.get(encryptedUser);
             List<BookMarked> bookMarkedList = null;
@@ -236,15 +378,37 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         List<NewsDTO> likedNews = new ArrayList<>();
         Map<Long,BookMarked> userBookmarkMap = null;
 
-        Map<String,Map<Long,Likes>> listMap = likeComponent.getAllLikesOfUser();
-        Map<Long,News> allNews = newsComponent.getAllNews();
-        Map<String,Map<Long,BookMarked>> allBookmarkedNews = bookMarkComponent.getAllBookmarksOfUser();
+        Map<String,Map<Long,Likes>> listMap = null;
+        try {
+            listMap = likeComponent.getAllLikesOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch all user likes");
+            throw e;
+        }
+        Map<Long,News> allNews = null;
+        try {
+            allNews = newsComponent.getAllNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch all news");
+            throw e;
+        }
+        Map<String,Map<Long,BookMarked>> allBookmarkedNews = null;
+        try {
+            allBookmarkedNews = bookMarkComponent.getAllBookmarksOfUser();
+        }catch (Exception e){
+            LOG.error("unable to fetch user bookmarks");
+        }
 
         String encryptedUser = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
         if(!CollectionUtils.isEmpty(allBookmarkedNews)){
             userBookmarkMap = allBookmarkedNews.get(encryptedUser);
         }
-        Map<Long,Long> totalLikes = likeComponent.getTotalLikesOnNews();
+        Map<Long,Long> totalLikes = null;
+        try {
+            totalLikes = likeComponent.getTotalLikesOnNews();
+        }catch (Exception e){
+            LOG.error("unable to fetch total likes");
+        }
         if(!CollectionUtils.isEmpty(listMap) && !CollectionUtils.isEmpty(allNews)){
             Map<Long,Likes> likesMap = listMap.get(encryptedUser);
             List<Likes> likesList = null;
@@ -288,7 +452,12 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
             likeRepository.addLike(userEncrypt, newsId, like);
-            Map<Long,Long> likeCount = likeComponent.getTotalLikesOnNews();
+            Map<Long,Long> likeCount = null;
+            try {
+                likeCount = likeComponent.getTotalLikesOnNews();
+            }catch (Exception e){
+                LOG.error("unable to fetch total likes");
+            }
             value = likeCount.get(newsId);
             if(like==0){
                 if(!CollectionUtils.isEmpty(likeCount)){
@@ -304,7 +473,12 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 }
             }
             likeComponent.onlyAddLikeCount(likeCount);
-            Map<String,Map<Long,Likes>> likedMapString = likeComponent.getAllLikesOfUser();
+            Map<String,Map<Long,Likes>> likedMapString = null;
+            try {
+                likedMapString = likeComponent.getAllLikesOfUser();
+            }catch (Exception e){
+                LOG.error("unable to fetch user likes");
+            }
             if(like==0){
                 if(!CollectionUtils.isEmpty(likedMapString)){
                     Map<Long,Likes> likesMap = likedMapString.get(userEncrypt);
@@ -315,8 +489,14 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 }
             }else{
                 News news = null;
-                if(!CollectionUtils.isEmpty(newsComponent.getAllNews())){
-                    news = newsComponent.getAllNews().get(newsId);
+                Map<Long,News> allNews = null;
+                try {
+                    allNews = newsComponent.getAllNews();
+                }catch (Exception e){
+                    LOG.error("unable to fetch all news");
+                }
+                if(!CollectionUtils.isEmpty(allNews)){
+                    news = allNews.get(newsId);
                 }
                 Likes likes = new Likes();
                 likes.setIsLiked(true);
@@ -351,7 +531,12 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
         try{
             String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
             bookmarkRepository.addBookMark(userEncrypt, newsId, bookmark);
-            Map<String,Map<Long,BookMarked>> bookmarkedMapString = bookMarkComponent.getAllBookmarksOfUser();
+            Map<String,Map<Long,BookMarked>> bookmarkedMapString = null;
+            try {
+                bookmarkedMapString = bookMarkComponent.getAllBookmarksOfUser();
+            }catch (Exception e){
+                LOG.error("unable to fetch user bookmarks");
+            }
             if(bookmark==0){
                 if(!CollectionUtils.isEmpty(bookmarkedMapString)){
                     Map<Long,BookMarked> bookMarkedMap = bookmarkedMapString.get(userEncrypt);
@@ -362,8 +547,14 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 }
             }else{
                 News news = null;
-                if(!CollectionUtils.isEmpty(newsComponent.getAllNews())){
-                    news = newsComponent.getAllNews().get(newsId);
+                Map<Long, News> allNews = null;
+                try {
+                    allNews = newsComponent.getAllNews();
+                }catch(Exception e){
+                    LOG.error("unable to fetch all news");
+                }
+                if(!CollectionUtils.isEmpty(allNews)){
+                    news = allNews.get(newsId);
                 }
                 BookMarked bookMarked = new BookMarked();
                 bookMarked.setIsBookmarked(true);
