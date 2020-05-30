@@ -108,6 +108,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                     newsDTO.setId(news.getId());
                     if(!CollectionUtils.isEmpty(totalLikes)){
                         newsDTO.setLikeCount(totalLikes.get(news.getId()));
+                    }else{
+                        newsDTO.setLikeCount(0L);
                     }
                     newsDTO.setNews(news.getNewsBody());
                     newsDTO.setAuthor(username);
@@ -117,6 +119,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                         }else{
                             newsDTO.setIsLiked(1);
                         }
+                    }else {
+                        newsDTO.setIsLiked(0);
                     }
                     if(!CollectionUtils.isEmpty(bookmarksOfUser)){
                         if(bookmarksOfUser.get(news.getId())==null){
@@ -124,6 +128,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                         }else{
                             newsDTO.setIsBookmarked(1);
                         }
+                    }else{
+                        newsDTO.setIsBookmarked(0);
                     }
                     newsOfUser.add(newsDTO);
                 }
@@ -137,18 +143,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
 //    @CacheEvict(value = Constants.USER_NEWS_CACHE, cacheManager = Constants.CAFFEINE_CACHE_MANAGER, key = "#username")
     public ResponseEntity updateNews(Long id, String newsBody,String username) throws Exception {
         try {
-            myHomeNewsRepository.updateNews(id, newsBody);
-            Map<Long,News> allNews = null;
-            try {
-                allNews = newsComponent.getAllNews();
-            }catch (Exception e){
-                LOG.error("unable to fetch all news");
-            }
-            if(!CollectionUtils.isEmpty(allNews)) {
-                allNews.get(id).setNewsBody(newsBody);
-                newsComponent.onlyPutAllNews(allNews);
-            }
             String usernameEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),username);
+            myHomeNewsRepository.updateNews(id, newsBody,usernameEncrypt);
             Map<String,Map<Long,News>> userNewsString = null;
             try {
                 userNewsString = newsComponent.getUserNews();
@@ -158,9 +154,22 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
             if(!CollectionUtils.isEmpty(userNewsString)){
                 Map<Long,News> userNews = userNewsString.get(usernameEncrypt);
                 if(!CollectionUtils.isEmpty(userNews)){
+                    if (userNews.get(id) == null) {
+                        return new ResponseEntity("news not updated", HttpStatus.OK);
+                    }
                     userNews.get(id).setNewsBody(newsBody);
                     newsComponent.onlyPutUserNews(userNewsString);
                 }
+            }
+            Map<Long,News> allNews = null;
+            try {
+                allNews = newsComponent.getAllNews();
+            }catch (Exception e){
+                LOG.error("unable to fetch all news");
+            }
+            if(!CollectionUtils.isEmpty(allNews)) {
+                allNews.get(id).setNewsBody(newsBody);
+                newsComponent.onlyPutAllNews(allNews);
             }
             return new ResponseEntity("news updated", HttpStatus.OK);
         }catch (Exception e){
@@ -246,6 +255,8 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
             }else{
                 newsDTO.setIsBookmarked(1);
             }
+        }else{
+            newsDTO.setIsBookmarked(0);
         }
         if(!CollectionUtils.isEmpty(allLikesOfUser)){
             if(allLikesOfUser.get(news.getId())==null){
@@ -253,9 +264,13 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
             }else{
                 newsDTO.setIsLiked(1);
             }
+        }else{
+            newsDTO.setIsLiked(0);
         }
         if(!CollectionUtils.isEmpty(totalLikes)){
             newsDTO.setLikeCount(totalLikes.get(news.getId()));
+        }else{
+            newsDTO.setLikeCount(0L);
         }
         return newsDTO;
     }
@@ -458,17 +473,24 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
             }catch (Exception e){
                 LOG.error("unable to fetch total likes");
             }
-            value = likeCount.get(newsId);
+            if(!CollectionUtils.isEmpty(likeCount)) {
+                value = likeCount.get(newsId);
+            }
+            if(value==null){
+                value = 0L;
+            }
             if(like==0){
                 if(!CollectionUtils.isEmpty(likeCount)){
                     if(likeCount.get(newsId)!=null) {
-                        likeCount.put(newsId, likeCount.get(newsId) - 1);
+                        likeCount.put(newsId, value - 1);
                     }
                 }
             }else{
                 if(!CollectionUtils.isEmpty(likeCount)){
                     if(likeCount.get(newsId)!=null) {
-                        likeCount.put(newsId, likeCount.get(newsId) + 1);
+                        likeCount.put(newsId, value + 1);
+                    }else{
+                        likeCount.put(newsId,1L);
                     }
                 }
             }
@@ -502,7 +524,7 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 likes.setIsLiked(true);
                 likes.setNews(news);
                 Login login = new Login();
-                login.setUsername(username);
+                login.setUsername(userEncrypt);
                 likes.setLogin(login);
                 if(!CollectionUtils.isEmpty(likedMapString)){
                     Map<Long,Likes> likesMap = likedMapString.get(userEncrypt);
@@ -510,12 +532,12 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                         likesMap = new HashMap<>();
                     }
                     likesMap.put(newsId,likes);
-                    likedMapString.put(username,likesMap);
+                    likedMapString.put(userEncrypt,likesMap);
                 }else{
                     likedMapString = new HashMap<>();
                     Map<Long,Likes> likesMap = new HashMap<>();
                     likesMap.put(newsId,likes);
-                    likedMapString.put(username,likesMap);
+                    likedMapString.put(userEncrypt,likesMap);
                 }
                 likeComponent.onlyAddUserLikedNews(likedMapString);
             }
@@ -560,7 +582,7 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                 bookMarked.setIsBookmarked(true);
                 bookMarked.setNews(news);
                 Login login = new Login();
-                login.setUsername(username);
+                login.setUsername(userEncrypt);
                 bookMarked.setLogin(login);
                 if(!CollectionUtils.isEmpty(bookmarkedMapString)){
                     Map<Long,BookMarked> bookMarkedMap = bookmarkedMapString.get(userEncrypt);
@@ -568,12 +590,12 @@ public class MyHomeNewsServiceImpl extends EncryptionUtil  implements MyHomeNews
                         bookMarkedMap = new HashMap<>();
                     }
                     bookMarkedMap.put(newsId,bookMarked);
-                    bookmarkedMapString.put(username,bookMarkedMap);
+                    bookmarkedMapString.put(userEncrypt,bookMarkedMap);
                 }else{
                     bookmarkedMapString = new HashMap<>();
                     Map<Long,BookMarked> bookMarkedMap = new HashMap<>();
                     bookMarkedMap.put(newsId,bookMarked);
-                    bookmarkedMapString.put(username,bookMarkedMap);
+                    bookmarkedMapString.put(userEncrypt,bookMarkedMap);
                 }
                 bookMarkComponent.onlyPutAllBookmarks(bookmarkedMapString);
             }

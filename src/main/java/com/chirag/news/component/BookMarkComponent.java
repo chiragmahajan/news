@@ -58,6 +58,9 @@ public class BookMarkComponent {
 
         bookMarkedNews = new HashMap<>();
         List<BookMarked> bookMarkedList = bookmarkRepository.getAll();
+        if(CollectionUtils.isEmpty(bookMarkedList)){
+            return;
+        }
         for(BookMarked bookMarked:bookMarkedList){
             if(bookMarkedNews.get(bookMarked.getLogin().getUsername())==null){
                 Map<Long,BookMarked> bookMarkedMap = new HashMap<>();

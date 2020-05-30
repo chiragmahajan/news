@@ -25,7 +25,7 @@ public class AllNewsController {
     public List<NewsDTO> allNews(@PathVariable("pageNo") int pageNo,
                                  @RequestHeader("x-jwt-token") String jwt) throws Exception {
         Boolean login = false;
-        if(jwtTokenService.verifyS2sJwtToken(jwt)!=true) {
+        if(jwtTokenService.verifyS2sJwtToken(jwt)==true) {
             login = true;
         }
         return allNewsService.allNews(pageNo,login);

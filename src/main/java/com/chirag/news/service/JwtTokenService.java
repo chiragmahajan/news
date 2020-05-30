@@ -21,18 +21,9 @@ public class JwtTokenService {
 
     public String generateToken(){
         try {
-            Map<String, String> claimsMap = new HashMap<>();
-            long timeStamp = System.currentTimeMillis();
-            claimsMap.put("client-id", jwtConfig.getClientId());
-            claimsMap.put("ts", Long.toString(timeStamp));
-            JWTCreator.Builder jwtBuilder = JWT.create().withIssuer("Chirag").withIssuedAt(new Date());
-            Map<String, Object> header = new HashMap<>();
-            header.put("alg", "HS256");
-            header.put("typ", "JWT");
-            jwtBuilder.withHeader(header);
-            Algorithm algorithm = Algorithm.HMAC256(jwtConfig.getSecretKey());
-
-            return jwtBuilder.sign(algorithm);
+            return JWT.create().withIssuer("Chirag").withClaim("client-id", jwtConfig.getClientId())
+                    .withIssuedAt(new Date())
+                    .sign(Algorithm.HMAC256(jwtConfig.getSecretKey()));
         } catch (Exception e) {
             return null;
         }

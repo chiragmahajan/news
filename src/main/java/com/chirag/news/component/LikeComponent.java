@@ -62,6 +62,9 @@ public class LikeComponent {
         likedNewsByUser = new HashMap<>();
         numberOfLikesOnNews = new HashMap<>();
         List<Likes> likesList = likeRepository.getAllLikes();
+        if(CollectionUtils.isEmpty(likesList)){
+            return;
+        }
         for(Likes likes:likesList){
             if(likedNewsByUser.get(likes.getLogin().getUsername())==null){
                 Map<Long,Likes> likesMap = new HashMap<>();

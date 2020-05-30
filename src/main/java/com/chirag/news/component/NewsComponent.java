@@ -2,6 +2,7 @@ package com.chirag.news.component;
 
 import com.chirag.news.constants.Constants;
 import com.chirag.news.model.cache.CacheBasicPutRequest;
+import com.chirag.news.model.cache.CacheListPutRequest;
 import com.chirag.news.model.cache.CacheRequest;
 import com.chirag.news.model.entity.News;
 import com.chirag.news.repository.MyHomeNewsRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,7 @@ public class NewsComponent {
     private static final ObjectMapper mapper ;
 
     private static final String ALL_NEWS = "ALL_NEWS::";
+    private static final String ALL_NEWS_LIST = "ALL_NEWS_LIST::";
     private static final String USER_NEWS = "USER_NEWS::";
 
     private static final Map<String,Integer> ttlMap;
@@ -62,6 +65,9 @@ public class NewsComponent {
         allNews = new HashMap<>();
         userNews = new HashMap<>();
         List<News> everyNews = myHomeNewsRepository.getAllNews();
+        if(CollectionUtils.isEmpty(everyNews)){
+            return;
+        }
         for(News news:everyNews){
             allNews.put(news.getId(),news);
             if(userNews.get(news.getLogin().getUsername())==null){
@@ -93,6 +99,21 @@ public class NewsComponent {
         if(!CollectionUtils.isEmpty(userNews)){
             cacheService.put(cacheBasicPutRequest1);
         }
+
+        CacheRequest cacheRequest = new CacheRequest();
+        cacheRequest.setNamespace(ALL_NEWS_LIST);
+        cacheRequest.setKey(Constants.ALL_NEWS_KEY_LIST);
+        cacheService.deleteKey(cacheRequest);
+
+        CacheListPutRequest<News> cacheListPutRequest = new CacheListPutRequest<>();
+        cacheListPutRequest.setNamespace(ALL_NEWS_LIST);
+        cacheListPutRequest.setKey(Constants.ALL_NEWS_KEY_LIST);
+        cacheListPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheListPutRequest.setUpdateTtl(true);
+        cacheListPutRequest.setValues(new ArrayList<>(allNews.values()));
+        if(!CollectionUtils.isEmpty(new ArrayList<>(allNews.values()))){
+            cacheService.putList(cacheListPutRequest);
+        }
     }
 
     public Map<Long,News> getAllNews() throws Exception {
@@ -115,11 +136,11 @@ public class NewsComponent {
 
     public List<News> getAllNewsPerPage(int page) throws Exception {
         CacheRequest cacheRequest = new CacheRequest();
-        cacheRequest.setNamespace(ALL_NEWS);
-        cacheRequest.setKey(Constants.ALL_NEWS_KEY);
+        cacheRequest.setNamespace(ALL_NEWS_LIST);
+        cacheRequest.setKey(Constants.ALL_NEWS_KEY_LIST);
         List<News> newsAll;
         try {
-            newsAll = cacheService.getList(cacheRequest,(page*10),(page*10+10), new TypeReference<News>() {
+            newsAll = cacheService.getList(cacheRequest,((page-1)*10),((page-1)*10+10), new TypeReference<News>(){
             });
             if (CollectionUtils.isEmpty(newsAll)) {
                 throw new Exception();
@@ -130,11 +151,11 @@ public class NewsComponent {
         }
         initialiseNewsCache();
         CacheRequest cacheRequest1 = new CacheRequest();
-        cacheRequest1.setNamespace(ALL_NEWS);
-        cacheRequest1.setKey(Constants.ALL_NEWS_KEY);
+        cacheRequest1.setNamespace(ALL_NEWS_LIST);
+        cacheRequest1.setKey(Constants.ALL_NEWS_KEY_LIST);
         List<News> newsAll1;
         try {
-            newsAll1 = cacheService.getList(cacheRequest1,(page*10),(page*10+10), new TypeReference<News>() {
+            newsAll1 = cacheService.getList(cacheRequest1,((page-1)*10),((page-1)*10+10), new TypeReference<News>() {
             });
             if (CollectionUtils.isEmpty(newsAll1)) {
                 throw new Exception();
@@ -174,6 +195,22 @@ public class NewsComponent {
         if(!CollectionUtils.isEmpty(allLatestNews)){
             cacheService.put(cacheBasicPutRequest);
         }
+
+        CacheRequest cacheRequest = new CacheRequest();
+        cacheRequest.setNamespace(ALL_NEWS_LIST);
+        cacheRequest.setKey(Constants.ALL_NEWS_KEY_LIST);
+        cacheService.deleteKey(cacheRequest);
+
+        CacheListPutRequest<News> cacheListPutRequest = new CacheListPutRequest<>();
+        cacheListPutRequest.setNamespace(ALL_NEWS_LIST);
+        cacheListPutRequest.setKey(Constants.ALL_NEWS_KEY_LIST);
+        cacheListPutRequest.setTtl(ttlMap.getOrDefault(Constants.CACHE_ALL_LABELS_KEY,300));
+        cacheListPutRequest.setUpdateTtl(true);
+        cacheListPutRequest.setValues(new ArrayList<>(allLatestNews.values()));
+        if(!CollectionUtils.isEmpty(new ArrayList<>(allLatestNews.values()))){
+            cacheService.putList(cacheListPutRequest);
+        }
+
     }
 
     public void onlyPutUserNews(Map<String,Map<Long,News>> allUserLatestNews) throws Exception {

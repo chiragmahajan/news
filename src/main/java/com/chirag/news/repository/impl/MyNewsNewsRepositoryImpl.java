@@ -1,13 +1,11 @@
 package com.chirag.news.repository.impl;
 
 import com.chirag.news.constants.Constants;
-import com.chirag.news.model.DTO.NewsDTO;
-import com.chirag.news.model.entity.Likes;
-import com.chirag.news.model.entity.Login;
 import com.chirag.news.model.entity.News;
 import com.chirag.news.repository.MyHomeNewsRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -32,9 +30,10 @@ public class MyNewsNewsRepositoryImpl implements MyHomeNewsRepository {
 
     @Override
     @Transactional(transactionManager = Constants.MASTER_TRANSACTION_MANAGER)
-    public void updateNews(Long id, String newsBody) {
-        Query query = masterEntityManager.createNativeQuery("update news set news_body =:newsBody where id=:id",News.class);
+    public void updateNews(Long id, String newsBody,String userEncrypt) {
+        Query query = masterEntityManager.createNativeQuery("update news set news_body =:newsBody where id=:id and username=:username",News.class);
         query.setParameter("newsBody",newsBody);
+        query.setParameter("username",userEncrypt);
         query.setParameter("id",id);
         query.executeUpdate();
     }
@@ -64,9 +63,13 @@ public class MyNewsNewsRepositoryImpl implements MyHomeNewsRepository {
 
     @Override
     public News getNewlyAddedNews(String username, String newsBody) {
-        Query query = slaveEntityManager.createNativeQuery("select * from news where username =:username and news_body =:newsBody and active=1 order by created_at desc limit 1", News.class);
+        Query query = slaveEntityManager.createNativeQuery("select * from news where username =:username and news_body =:newsBody and active=1 order by created_at desc  limit 1", News.class);
         query.setParameter("username",username);
-        query.setParameter("newBody",newsBody);
-        return (News) query.getSingleResult();
+        query.setParameter("newsBody",newsBody);
+        List<News> newsList = query.getResultList();
+        if(!CollectionUtils.isEmpty(newsList)){
+            return newsList.get(0);
+        }
+        return null;
     }
 }

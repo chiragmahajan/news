@@ -19,5 +19,5 @@ public class Constants {
     public final static String TOTAL_LIKES_KEY = "totalLikesKey";
     public final static String ALL_NEWS_KEY = "allNewsKeys";
     public final static String USER_NEWS_KEY = "userNewsKey";
-
+    public final static String ALL_NEWS_KEY_LIST = "allNewsKeysList";
 }

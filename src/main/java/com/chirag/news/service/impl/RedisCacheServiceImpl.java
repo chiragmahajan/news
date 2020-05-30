@@ -267,7 +267,8 @@ public class RedisCacheServiceImpl implements CacheService {
             List<T> objList = new ArrayList<>();
 
             for (String aList : strList) {
-                T object = JsonRedisSerDe.deserialize(aList, typeReference);
+               // T object = JsonRedisSerDe.deserialize(aList, typeReference);
+                T object = mapper.readValue(aList, typeReference);
                 objList.add(object);
             }
             if (LOGGER.isDebugEnabled()) {
