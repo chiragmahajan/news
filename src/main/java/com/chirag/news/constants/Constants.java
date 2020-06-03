@@ -20,4 +20,9 @@ public class Constants {
     public final static String ALL_NEWS_KEY = "allNewsKeys";
     public final static String USER_NEWS_KEY = "userNewsKey";
     public final static String ALL_NEWS_KEY_LIST = "allNewsKeysList";
+
+    public static final String DATA_EXCHANGE_META_STATUS_KEY = "status";
+    public static final String DATA_EXCHANGE_META_SUCCESS_KEY = "success";
+    public static final String DATA_EXCHANGE_META_FAILED_KEY = "failed";
+    public static final String DATA_EXCHANGE_META_FAILURE_REASON_KEY = "failureReason";
 }

@@ -1,6 +1,7 @@
 package com.chirag.news.service.impl;
 
 import com.chirag.news.config.appConfig.AppConfig;
+import com.chirag.news.model.DataExchange;
 import com.chirag.news.model.entity.Login;
 import com.chirag.news.repository.LoginRepository;
 import com.chirag.news.service.JwtTokenService;
@@ -9,6 +10,8 @@ import com.chirag.news.util.EncryptionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,20 +26,27 @@ public class LoginServiceImpl extends EncryptionUtil implements LoginService {
     private JwtTokenService jwtTokenService;
 
     @Override
-    public String findUser(String username, String password) {
+    public DataExchange findUser(String username, String password) {
         String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
         String passwordEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(),password);
-        Login findUser = loginRepository.findUser(userEncrypt,passwordEncrypt);
-        if(findUser!=null){
-            return jwtTokenService.generateToken();
-        }else{
+        try {
+            Login findUser = loginRepository.findUser(userEncrypt, passwordEncrypt);
+            if (findUser != null) {
+                DataExchange dataExchange = new DataExchange();
+                dataExchange.success("token",jwtTokenService.generateToken());
+                return dataExchange;
+            } else {
+                LOG.error("unable to find user");
+                return null;
+            }
+        }catch (Exception e){
             LOG.error("unable to find user");
             return null;
         }
     }
 
     @Override
-    public String saveUser(String username, String password) {
+    public DataExchange saveUser(String username, String password) {
         String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
         String passwordEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), password);
         try {
@@ -44,7 +54,9 @@ public class LoginServiceImpl extends EncryptionUtil implements LoginService {
             login.setPassword(passwordEncrypt);
             login.setUsername(userEncrypt);
             loginRepository.saveUser(login);
-            return jwtTokenService.generateToken();
+            DataExchange dataExchange = new DataExchange();
+            dataExchange.success("token",jwtTokenService.generateToken());
+            return dataExchange;
         } catch (Exception e) {
             LOG.error("unable to save user");
             return null;
@@ -52,7 +64,7 @@ public class LoginServiceImpl extends EncryptionUtil implements LoginService {
     }
 
     @Override
-    public Boolean updateUser(String username, String password) {
+    public DataExchange updateUser(String username, String password) {
         String userEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), username);
         String passwordEncrypt = EncryptionUtil.encrypt(appConfig.getEncryptionKey(), password);
         try {
@@ -60,10 +72,14 @@ public class LoginServiceImpl extends EncryptionUtil implements LoginService {
             login.setPassword(passwordEncrypt);
             login.setUsername(userEncrypt);
             loginRepository.updateUser(login);
-            return true;
+            DataExchange dataExchange = new DataExchange();
+            dataExchange.success("updated",true);
+            return dataExchange;
         } catch (Exception e) {
             LOG.error("unable to update user");
-            return false;
+            DataExchange dataExchange = new DataExchange();
+            dataExchange.success("updated",false);
+            return dataExchange;
         }
     }
 }

@@ -1,7 +1,9 @@
 package com.chirag.news.service;
 
+import com.chirag.news.model.DataExchange;
+
 public interface LoginService {
-    String findUser(String username,String password);
-    String saveUser(String username,String password);
-    Boolean updateUser(String username,String password);
+    DataExchange findUser(String username, String password);
+    DataExchange saveUser(String username,String password);
+    DataExchange updateUser(String username,String password);
 }
